@@ -25,8 +25,8 @@ def main():
     # 🧠 render template
     template = Template(open("template.html", encoding="utf-8").read())
     html = template.render(ranking=results)
-
-    with open("dist/index.html", "w", encoding="utf-8") as f:
+    os.makedirs('dist', exist_ok=True)
+    with open("dist/index.html", mode="w", encoding="utf-8") as f:
         f.write(html)
 
     
