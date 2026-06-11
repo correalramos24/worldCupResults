@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 def main():
     load_dotenv()
     URL = os.environ["SHEET_URL"]
+
     # 1. Load data & retrive participants
     df = pd.read_csv(URL, dtype=str)
     participants = list(df.columns[4:])
