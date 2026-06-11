@@ -165,9 +165,16 @@ tr:hover {
             <span class="medal default">{{ score }}</span>
         {% endif %}
 
-        <div class="bar">
-            <div class="fill" style="width: {{ (score / max_score * 100) | round(1) }}%"></div>
-        </div>
+        {% if score != 0 %}
+            <div class="bar">
+                <div class="fill" style="width: {{ (score / max_score * 100) | round(1) }}%"></div>
+            </div>
+        {% else %}
+            <div class="bar">
+                
+            </div>
+        {% endif %}
+        
     </td>
 
 </tr>
