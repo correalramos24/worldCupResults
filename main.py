@@ -26,7 +26,7 @@ def main():
     template = Template(open("template.html", encoding="utf-8").read())
     html = template.render(ranking=results)
 
-    with open("index.html", "w", encoding="utf-8") as f:
+    with open("dist/index.html", "w", encoding="utf-8") as f:
         f.write(html)
 
     
