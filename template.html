@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Porra TDD</title>
+
+<style>
+:root {
+    --bg: #0b1220;
+    --card: #111827;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --gold: #fbbf24;
+    --silver: #9ca3af;
+    --bronze: #b45309;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+header {
+    text-align: center;
+    padding: 40px 20px 10px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 2.2rem;
+}
+
+.sub {
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    padding: 20px;
+}
+
+.card {
+    background: var(--card);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    text-align: left;
+    padding: 12px;
+    background: #1f2937;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #1f2937;
+}
+
+tr {
+    transition: 0.2s;
+}
+
+tr:hover {
+    background: #1f2937;
+    transform: scale(1.01);
+}
+
+/* POSITION BADGES */
+.rank {
+    font-weight: bold;
+    width: 40px;
+}
+
+/* MEDALS */
+.medal {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: black;
+}
+
+.gold { background: var(--gold); }
+.silver { background: var(--silver); }
+.bronze { background: var(--bronze); }
+.default { background: var(--green); }
+
+/* PROGRESS BAR */
+.bar {
+    height: 8px;
+    background: #1f2937;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #22c55e);
+    border-radius: 999px;
+    transition: width 0.6s ease;
+}
+
+/* TOP 3 HIGHLIGHT */
+.top1 { background: rgba(251, 191, 36, 0.08); }
+.top2 { background: rgba(156, 163, 175, 0.08); }
+.top3 { background: rgba(180, 83, 9, 0.08); }
+
+.player {
+    font-weight: 500;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🏆 Porra Mundial TDD</h1>
+    <div class="sub">Ranking</div>
+</header>
+
+<div class="container">
+<div class="card">
+
+<table>
+<tr>
+    <th>#</th>
+    <th>Jugador</th>
+    <th>Aciertos</th>
+</tr>
+
+{% set max_score = ranking.values() | list | max %}
+
+{% for player, score in ranking.items() %}
+<tr class="{% if loop.index == 1 %}top1{% elif loop.index == 2 %}top2{% elif loop.index == 3 %}top3{% endif %}">
+
+    <td class="rank">{{ loop.index }}</td>
+
+    <td class="player">
+        {{ player }}
+    </td>
+
+    <td>
+        {% if loop.index == 1 %}
+            <span class="medal gold">{{ score }}</span>
+        {% elif loop.index == 2 %}
+            <span class="medal silver">{{ score }}</span>
+        {% elif loop.index == 3 %}
+            <span class="medal bronze">{{ score }}</span>
+        {% else %}
+            <span class="medal default">{{ score }}</span>
+        {% endif %}
+
+        <div class="bar">
+            <div class="fill" style="width: {{ (score / max_score * 100) | round(1) }}%"></div>
+        </div>
+    </td>
+
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+</div>
+
+</body>
+</html>
