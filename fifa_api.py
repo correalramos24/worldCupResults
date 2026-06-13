@@ -3,7 +3,7 @@ import urllib.request
 from functools import cache
 
 
-FIFA_API = "https://api.fifa.com/api/v3/calendar/matches?from=2026-06-01T00:00:00Z&language=en&count=500"
+FIFA_API = "https://api.fifa.com/api/v3/calendar/matches?idCompetition=17&idSeason=285023&count=500"
 ID_COMPETITION = "17"
 ID_SEASON = "285023"
 
@@ -15,6 +15,8 @@ TEAM_ALIASES = {
     "Cape Verde": "Cabo Verde",
     "DR Congo": "Congo DR",
     "United States": "USA",
+    "Iran": "IR Iran",
+    "Turkey": "Türkiye",
 }
 
 
@@ -50,6 +52,8 @@ def fetch_all() -> list[dict]:
         m for m in data.get("Results", [])
         if m.get("IdCompetition") == ID_COMPETITION
         and m.get("IdSeason") == ID_SEASON
+        and m.get("Home") is not None
+        and m.get("Away") is not None
     ]
 
 
