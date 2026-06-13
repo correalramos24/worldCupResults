@@ -1,3 +1,4 @@
 .env
 .secrets
 index.html
+__pycache__/
