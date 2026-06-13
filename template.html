@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <title>Porra TDD</title>
@@ -16,6 +16,8 @@
     --silver: #9ca3af;
     --bronze: #b45309;
 }
+
+* { box-sizing: border-box; }
 
 body {
     margin: 0;
@@ -40,7 +42,7 @@ h1 {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1200px;
     margin: auto;
     padding: 20px;
 }
@@ -50,6 +52,16 @@ h1 {
     border-radius: 18px;
     padding: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.card + .card {
+    margin-top: 24px;
+}
+
+.card h2 {
+    margin: 0 0 16px;
+    font-size: 1.3rem;
+    color: var(--text);
 }
 
 table {
@@ -70,22 +82,18 @@ td {
     border-bottom: 1px solid #1f2937;
 }
 
-tr {
-    transition: 0.2s;
-}
+tr { transition: 0.2s; }
 
-tr:hover {
+.rank-table tr:hover {
     background: #1f2937;
     transform: scale(1.01);
 }
 
-/* POSITION BADGES */
 .rank {
     font-weight: bold;
     width: 40px;
 }
 
-/* MEDALS */
 .medal {
     padding: 4px 10px;
     border-radius: 999px;
@@ -99,7 +107,6 @@ tr:hover {
 .bronze { background: var(--bronze); }
 .default { background: var(--green); }
 
-/* PROGRESS BAR */
 .bar {
     height: 8px;
     background: #1f2937;
@@ -115,13 +122,96 @@ tr:hover {
     transition: width 0.6s ease;
 }
 
-/* TOP 3 HIGHLIGHT */
 .top1 { background: rgba(251, 191, 36, 0.08); }
 .top2 { background: rgba(156, 163, 175, 0.08); }
 .top3 { background: rgba(180, 83, 9, 0.08); }
 
 .player {
     font-weight: 500;
+}
+
+/* ----- MATCH TABLE ----- */
+.match-wrapper {
+    overflow-x: auto;
+}
+
+.match-table {
+    font-size: 0.82rem;
+    min-width: 600px;
+}
+
+.match-table th,
+.match-table td {
+    padding: 10px 8px;
+    text-align: center;
+    white-space: nowrap;
+    border-bottom: 1px solid #1f2937;
+}
+
+.match-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.match-table .fixture {
+    text-align: left;
+    min-width: 80px;
+}
+
+.match-table .fixture-team {
+    display: inline-block;
+}
+
+.bet-cell {
+    font-weight: 600;
+    font-size: 0.85rem;
+    min-width: 32px;
+    border-radius: 6px;
+    transition: 0.15s;
+}
+
+.bet-hit {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--green);
+}
+
+.bet-miss {
+    color: #4b5563;
+}
+
+.bet-pending {
+    color: var(--muted);
+}
+
+.result-badge {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 0.85rem;
+    background: #1f2937;
+    padding: 2px 10px;
+    border-radius: 999px;
+    color: var(--accent);
+}
+
+.result-pending {
+    color: var(--muted);
+    font-size: 0.75rem;
+}
+
+.match-num {
+    color: var(--muted);
+    font-size: 0.75rem;
+}
+
+.group-label {
+    display: inline-block;
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: #1f2937;
+    padding: 1px 8px;
+    border-radius: 999px;
+    margin-top: 2px;
 }
 </style>
 </head>
@@ -130,13 +220,13 @@ tr:hover {
 
 <header>
     <h1>🏆 Porra Mundial TDD</h1>
-    <div class="sub">Ranking</div>
+    <div class="sub">Ranking de aciertos</div>
 </header>
 
 <div class="container">
-<div class="card">
 
-<table>
+<div class="card">
+<table class="rank-table">
 <tr>
     <th>#</th>
     <th>Jugador</th>
@@ -170,19 +260,63 @@ tr:hover {
                 <div class="fill" style="width: {{ (score / max_score * 100) | round(1) }}%"></div>
             </div>
         {% else %}
-            <div class="bar">
-                
-            </div>
+            <div class="bar"></div>
         {% endif %}
-        
     </td>
 
 </tr>
 {% endfor %}
 
 </table>
-
 </div>
+
+<div class="card">
+<h2>📋 Partidos</h2>
+<div class="match-wrapper">
+<table class="match-table">
+<thead>
+<tr>
+    <th>#</th>
+    <th>Data</th>
+    <th>Local</th>
+    <th>Visitante</th>
+    <th>Res.</th>
+    {% for player in ranking.keys() %}
+    <th>{{ player }}</th>
+    {% endfor %}
+</tr>
+</thead>
+<tbody>
+{% for match in matches %}
+<tr>
+    <td class="match-num">{{ loop.index }}</td>
+    <td>{{ match.data }}</td>
+    <td class="fixture">{{ match.local }}</td>
+    <td class="fixture">{{ match.visitante }}</td>
+    <td>
+        {% if match.resultat and match.resultat != "" %}
+            <span class="result-badge">{{ match.resultat }}</span>
+        {% else %}
+            <span class="result-pending">—</span>
+        {% endif %}
+    </td>
+    {% for player in ranking.keys() %}
+        {% set apuesta = match.apuestas[player] %}
+        <td class="bet-cell
+            {%- if apuesta.hit %} bet-hit
+            {%- elif match.resultat and match.resultat != "" %} bet-miss
+            {%- else %} bet-pending
+            {%- endif %}">
+            {{ apuesta.bet }}
+        </td>
+    {% endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
 </div>
 
 </body>
