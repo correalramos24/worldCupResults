@@ -1,8 +1,19 @@
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import pandas as pd
 from jinja2 import Template
 import os
 from dotenv import load_dotenv
 from fifa_api import get_match, show_all
+
+
+def _format_date(date_str: str) -> str:
+    try:
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        dt_es = dt.astimezone(ZoneInfo("Europe/Madrid"))
+        return dt_es.strftime("%d/%m/%Y @ %H:%M")
+    except Exception:
+        return date_str
 
 
 def main():
@@ -18,30 +29,45 @@ def main():
 
     df.iloc[:, 3:] = df.iloc[:, 3:].apply(lambda col: col.str.lower())
 
-    fifa_results = {}
+    fifa_matches = {}
     for _, row in df.iterrows():
         m = get_match(row.iloc[1], row.iloc[2])
-        if m and m["result"]:
-            fifa_results[(row.iloc[1], row.iloc[2])] = m["result"]
+        if m:
+            fifa_matches[(row.iloc[1], row.iloc[2])] = m
 
-    print(f"FIFA results available: {len(fifa_results)} matches\n")
+    print(f"FIFA results available: {len(fifa_matches)} matches\n")
 
-    ranking = {p: 0 for p in participants}
+    ranking = {p: {"aciertos": 0, "rating": 0.0} for p in participants}
+
     for _, row in df.iterrows():
-        result = fifa_results.get((row.iloc[1], row.iloc[2]))
-        if result:
+        m = fifa_matches.get((row.iloc[1], row.iloc[2]))
+        if m and m["result"]:
+            result = m["result"]
+            outcome_counts = {"1": 0, "2": 0, "x": 0}
+            valid_predictions = 0
+            for p in participants:
+                bet = row[p]
+                if bet in outcome_counts:
+                    outcome_counts[bet] += 1
+                    valid_predictions += 1
+
             for p in participants:
                 if row[p] == result:
-                    ranking[p] += 1
+                    ranking[p]["aciertos"] += 1
+                    if valid_predictions > 0 and outcome_counts[result] > 0:
+                        ranking[p]["rating"] += valid_predictions / outcome_counts[result]
 
-    ranking = dict(sorted(ranking.items(), key=lambda x: -x[1]))
+    ranking = dict(
+        sorted(ranking.items(), key=lambda x: -x[1]["rating"])
+    )
 
     matches = []
     for _, row in df.iterrows():
-        result = fifa_results.get((row.iloc[1], row.iloc[2]), "")
+        m = fifa_matches.get((row.iloc[1], row.iloc[2]))
+        result = m["result"] if m else ""
         is_empty = not result
         match = {
-            "data": row.iloc[0],
+            "data": _format_date(m["date"]) if m else row.iloc[0],
             "local": row.iloc[1],
             "visitante": row.iloc[2],
             "resultat": result,

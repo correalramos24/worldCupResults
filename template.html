@@ -220,7 +220,7 @@ tr { transition: 0.2s; }
 
 <header>
     <h1>🏆 Porra Mundial TDD</h1>
-    <div class="sub">Ranking de aciertos</div>
+    <div class="sub">Ranking por rating ponderado</div>
 </header>
 
 <div class="container">
@@ -231,11 +231,12 @@ tr { transition: 0.2s; }
     <th>#</th>
     <th>Jugador</th>
     <th>Aciertos</th>
+    <th>Rating</th>
 </tr>
 
-{% set max_score = ranking.values() | list | max %}
+{% set max_rating = (ranking.values() | map(attribute="rating") | list | max) %}
 
-{% for player, score in ranking.items() %}
+{% for player, data in ranking.items() %}
 <tr class="{% if loop.index == 1 %}top1{% elif loop.index == 2 %}top2{% elif loop.index == 3 %}top3{% endif %}">
 
     <td class="rank">{{ loop.index }}</td>
@@ -244,20 +245,22 @@ tr { transition: 0.2s; }
         {{ player }}
     </td>
 
+    <td>{{ data.aciertos }}</td>
+
     <td>
         {% if loop.index == 1 %}
-            <span class="medal gold">{{ score }}</span>
+            <span class="medal gold">{{ data.rating | round(2) }}</span>
         {% elif loop.index == 2 %}
-            <span class="medal silver">{{ score }}</span>
+            <span class="medal silver">{{ data.rating | round(2) }}</span>
         {% elif loop.index == 3 %}
-            <span class="medal bronze">{{ score }}</span>
+            <span class="medal bronze">{{ data.rating | round(2) }}</span>
         {% else %}
-            <span class="medal default">{{ score }}</span>
+            <span class="medal default">{{ data.rating | round(2) }}</span>
         {% endif %}
 
-        {% if score != 0 %}
+        {% if data.rating != 0 and max_rating != 0 %}
             <div class="bar">
-                <div class="fill" style="width: {{ (score / max_score * 100) | round(1) }}%"></div>
+                <div class="fill" style="width: {{ (data.rating / max_rating * 100) | round(1) }}%"></div>
             </div>
         {% else %}
             <div class="bar"></div>
