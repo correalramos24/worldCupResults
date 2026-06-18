@@ -58,7 +58,7 @@ def main():
                         ranking[p]["rating"] += valid_predictions / outcome_counts[result]
 
     ranking = dict(
-        sorted(ranking.items(), key=lambda x: -x[1]["rating"])
+        sorted(ranking.items(), key=lambda x: (-x[1]["aciertos"], -x[1]["rating"]))
     )
 
     matches = []
@@ -66,11 +66,25 @@ def main():
         m = fifa_matches.get((row.iloc[1], row.iloc[2]))
         result = m["result"] if m else ""
         is_empty = not result
+
+        rating_value = 0.0
+        if not is_empty:
+            outcome_counts = {"1": 0, "2": 0, "x": 0}
+            valid_predictions = 0
+            for p in participants:
+                bet = row[p]
+                if bet in outcome_counts:
+                    outcome_counts[bet] += 1
+                    valid_predictions += 1
+            if valid_predictions > 0 and outcome_counts[result] > 0:
+                rating_value = valid_predictions / outcome_counts[result]
+
         match = {
             "data": _format_date(m["date"]) if m else row.iloc[0],
             "local": row.iloc[1],
             "visitante": row.iloc[2],
             "resultat": result,
+            "rating_value": rating_value,
             "apuestas": {}
         }
         for p in participants:
