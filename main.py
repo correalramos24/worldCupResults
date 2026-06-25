@@ -1,10 +1,22 @@
+from collections import OrderedDict
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import pandas as pd
 from jinja2 import Template
 import os
 from dotenv import load_dotenv
-from fifa_api import get_match, show_all
+from fifa_api import get_match, show_all, fetch_all, fetch_all_raw
+
+
+STAGE_NAMES = {
+    "First Stage": "Fase de Grupos",
+    "Round of 32": "1/16",
+    "Round of 16": "1/8",
+    "Quarter-final": "1/4",
+    "Semi-final": "Semifinal",
+    "Play-off for third place": "3er Puesto",
+    "Final": "Final",
+}
 
 
 def _format_date(date_str: str) -> str:
@@ -14,6 +26,24 @@ def _format_date(date_str: str) -> str:
         return dt_es.strftime("%d/%m/%Y @ %H:%M")
     except Exception:
         return date_str
+
+
+def _compute_jornada(fifa_matches: dict) -> dict:
+    """Assign jornada (1-3) to each First Stage match based on date order within its group."""
+    group_matches = {}
+    for (home, away), m in fifa_matches.items():
+        if m.get("stage_name") == "First Stage":
+            group = m.get("group_name", "")
+            if group not in group_matches:
+                group_matches[group] = []
+            group_matches[group].append((home, away, m.get("date", "")))
+
+    jornada_map = {}
+    for group, items in group_matches.items():
+        items.sort(key=lambda x: x[2])
+        for i, (home, away, _) in enumerate(items):
+            jornada_map[(home, away)] = (i // 2) + 1
+    return jornada_map
 
 
 def main():
@@ -29,6 +59,24 @@ def main():
 
     df.iloc[:, 3:] = df.iloc[:, 3:].apply(lambda col: col.str.lower())
 
+    # --- Read manual results from sheet (optional) ---
+    results_lookup = {}
+    results_url = URL.replace("gid=0", "gid=1")
+    try:
+        df_results = pd.read_csv(results_url, dtype=str)
+        print(f"\nResults sheet found ({len(df_results)} rows)")
+        print(f"Columns: {list(df_results.columns)}")
+        for _, r in df_results.iterrows():
+            key = (str(r.iloc[0]).strip(), str(r.iloc[1]).strip())
+            val = str(r.iloc[2]).strip().lower()
+            if val in ("1", "x", "2"):
+                results_lookup[key] = val
+        print(f"Manual results loaded: {len(results_lookup)} matches\n")
+    except Exception as e:
+        print(f"\nNo manual results sheet: {e}")
+        print("Using FIFA API as only result source\n")
+
+    # --- Build FIFA match lookup ---
     fifa_matches = {}
     for _, row in df.iterrows():
         m = get_match(row.iloc[1], row.iloc[2])
@@ -37,12 +85,23 @@ def main():
 
     print(f"FIFA results available: {len(fifa_matches)} matches\n")
 
+    jornada_map = _compute_jornada(fifa_matches)
+
+    # --- Determine result for a match: manual sheet > FIFA API ---
+    def _get_result(home: str, away: str) -> str:
+        key = (home.strip(), away.strip())
+        if key in results_lookup:
+            return results_lookup[key]
+        m = fifa_matches.get(key)
+        if m:
+            return m.get("result", "")
+        return ""
+
     ranking = {p: {"aciertos": 0, "rating": 0.0} for p in participants}
 
     for _, row in df.iterrows():
-        m = fifa_matches.get((row.iloc[1], row.iloc[2]))
-        if m and m["result"]:
-            result = m["result"]
+        result = _get_result(row.iloc[1], row.iloc[2])
+        if result:
             outcome_counts = {"1": 0, "2": 0, "x": 0}
             valid_predictions = 0
             for p in participants:
@@ -63,9 +122,10 @@ def main():
 
     matches = []
     for _, row in df.iterrows():
-        m = fifa_matches.get((row.iloc[1], row.iloc[2]))
-        result = m["result"] if m else ""
+        result = _get_result(row.iloc[1], row.iloc[2])
         is_empty = not result
+
+        m = fifa_matches.get((row.iloc[1].strip(), row.iloc[2].strip()))
 
         rating_value = 0.0
         if not is_empty:
@@ -79,13 +139,21 @@ def main():
             if valid_predictions > 0 and outcome_counts[result] > 0:
                 rating_value = valid_predictions / outcome_counts[result]
 
+        stage_name = m["stage_name"] if m else ""
+        group_name = m["group_name"] if m else ""
+        jornada = jornada_map.get((row.iloc[1], row.iloc[2]), 0)
+
         match = {
+            "date_raw": m["date"] if m else row.iloc[0],
             "data": _format_date(m["date"]) if m else row.iloc[0],
             "local": row.iloc[1],
             "visitante": row.iloc[2],
             "resultat": result,
             "rating_value": rating_value,
-            "apuestas": {}
+            "apuestas": {},
+            "stage_name": stage_name,
+            "group_name": group_name,
+            "jornada": jornada,
         }
         for p in participants:
             match["apuestas"][p] = {
@@ -94,8 +162,68 @@ def main():
             }
         matches.append(match)
 
+    stage_groups = OrderedDict()
+    for match in matches:
+        sn = match["stage_name"]
+        j = match["jornada"]
+        if sn == "First Stage" and j:
+            key = f"Jornada {j}"
+        elif sn in STAGE_NAMES:
+            key = STAGE_NAMES[sn]
+        else:
+            key = sn if sn else "Otros"
+        if key not in stage_groups:
+            stage_groups[key] = []
+        stage_groups[key].append(match)
+
+    match_groups = list(stage_groups.items())
+    total_games = 104
+    completed_games = sum(1 for m in matches if m["resultat"])
+
+    bracket_rounds = OrderedDict()
+    for m in fetch_all_raw():
+        stage_name = m.get("StageName", [{}])[0].get("Description", "") if m.get("StageName") else ""
+        if stage_name == "First Stage":
+            continue
+        round_key = STAGE_NAMES.get(stage_name, stage_name)
+        home_obj = m.get("Home")
+        away_obj = m.get("Away")
+        home = home_obj.get("TeamName", [{}])[0].get("Description", "??") if home_obj else "??"
+        away = away_obj.get("TeamName", [{}])[0].get("Description", "??") if away_obj else "??"
+        hs = home_obj.get("Score") if home_obj else None
+        aws = away_obj.get("Score") if away_obj else None
+        date = m.get("Date", "")
+        result = ""
+        if hs is not None and aws is not None:
+            try:
+                if int(hs) > int(aws):
+                    result = "1"
+                elif int(hs) < int(aws):
+                    result = "2"
+                else:
+                    result = "x"
+            except (ValueError, TypeError):
+                pass
+        if round_key not in bracket_rounds:
+            bracket_rounds[round_key] = []
+        bracket_rounds[round_key].append({
+            "home": home,
+            "away": away,
+            "home_score": hs,
+            "away_score": aws,
+            "result": result,
+            "date": _format_date(date) if date else "",
+        })
+    bracket_data = list(bracket_rounds.items())
+
+    all_rounds = []
+    for name, ms in match_groups:
+        all_rounds.append({"name": name, "matches": ms, "has_bets": True})
+    for name, ms in bracket_data:
+        all_rounds.append({"name": name, "matches": ms, "has_bets": False})
+
     template = Template(open("template.html", encoding="utf-8").read())
-    html = template.render(ranking=ranking, matches=matches)
+    html = template.render(ranking=ranking, all_rounds=all_rounds, total_games=total_games, completed_games=completed_games)
     os.makedirs('dist', exist_ok=True)
     with open("dist/index.html", mode="w", encoding="utf-8") as f:
         f.write(html)
