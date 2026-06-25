@@ -204,15 +204,88 @@ tr { transition: 0.2s; }
     font-size: 0.75rem;
 }
 
-.group-label {
-    display: inline-block;
-    font-size: 0.7rem;
-    color: var(--muted);
-    background: #1f2937;
-    padding: 1px 8px;
-    border-radius: 999px;
-    margin-top: 2px;
+.stage-header {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 14px 0;
+    margin: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
 }
+
+.stage-header:hover {
+    color: #60a5fa;
+}
+
+.stage-header:first-of-type {
+    padding-top: 0;
+}
+
+.stage-section + .stage-section {
+    margin-top: 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.stage-toggle {
+    font-size: 0.8rem;
+    color: var(--muted);
+    transition: transform 0.3s ease;
+}
+
+.stage-section.collapsed .stage-toggle {
+    transform: rotate(-90deg);
+}
+
+.stage-body {
+    overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s ease;
+    max-height: 20000px;
+    opacity: 1;
+}
+
+.stage-section.collapsed .stage-body {
+    max-height: 0;
+    opacity: 0;
+}
+
+.progress-card {
+    padding: 16px 20px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    color: var(--text);
+}
+
+.progress-count {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.progress-bar {
+    height: 10px;
+    background: #1f2937;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 999px;
+    transition: width 0.8s ease;
+}
+
+
+
 </style>
 </head>
 
@@ -220,10 +293,20 @@ tr { transition: 0.2s; }
 
 <header>
     <h1>🏆 Porra Mundial TDD</h1>
-    <div class="sub">Ranking por aciertos (Rating como desempate)</div>
+
 </header>
 
 <div class="container">
+
+<div class="card progress-card">
+    <div class="progress-header">
+        <span>Partidos completados</span>
+        <span class="progress-count">{{ completed_games }} / {{ total_games }}</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: {{ (completed_games / total_games * 100) | round(1) }}%"></div>
+    </div>
+</div>
 
 <div class="card">
 <table class="rank-table">
@@ -265,6 +348,14 @@ tr { transition: 0.2s; }
 
 <div class="card">
 <h2>📋 Partidos</h2>
+
+{% for round in all_rounds %}
+<div class="stage-section {{ 'collapsed' if loop.index > 1 else '' }}">
+<h3 class="stage-header" onclick="toggleSection(this)">
+    {{ round.name }}
+    <span class="stage-toggle">▼</span>
+</h3>
+<div class="stage-body">
 <div class="match-wrapper">
 <table class="match-table">
 <thead>
@@ -274,26 +365,33 @@ tr { transition: 0.2s; }
     <th>Local</th>
     <th>Visitante</th>
     <th>Res.</th>
+    {% if round.has_bets %}
     <th>Rating</th>
     {% for player in ranking.keys() %}
     <th>{{ player }}</th>
     {% endfor %}
+    {% endif %}
 </tr>
 </thead>
 <tbody>
-{% for match in matches %}
+{% for match in round.matches %}
 <tr>
     <td class="match-num">{{ loop.index }}</td>
-    <td>{{ match.data }}</td>
-    <td class="fixture">{{ match.local }}</td>
-    <td class="fixture">{{ match.visitante }}</td>
+    <td>{{ match.data if match.data is defined else match.date }}</td>
+    <td class="fixture">{{ match.local if match.local is defined else match.home }}</td>
+    <td class="fixture">{{ match.visitante if match.visitante is defined else match.away }}</td>
     <td>
-        {% if match.resultat and match.resultat != "" %}
+        {% if match.resultat is defined and match.resultat and match.resultat != "" %}
             <span class="result-badge">{{ match.resultat }}</span>
+        {% elif match.home_score is not none and match.away_score is not none %}
+            <span class="result-badge">{{ match.home_score }}-{{ match.away_score }}</span>
+        {% elif match.result and match.result != "" %}
+            <span class="result-badge">{{ match.result }}</span>
         {% else %}
             <span class="result-pending">—</span>
         {% endif %}
     </td>
+    {% if round.has_bets %}
     <td>
         {% if match.rating_value and match.rating_value > 0 %}
             <span class="result-badge">{{ match.rating_value | round(2) }}</span>
@@ -311,14 +409,27 @@ tr { transition: 0.2s; }
             {{ apuesta.bet }}
         </td>
     {% endfor %}
+    {% endif %}
 </tr>
 {% endfor %}
 </tbody>
 </table>
 </div>
 </div>
+</div>
+{% endfor %}
 
 </div>
 
+</div>
+
+<script>
+function toggleSection(header) {
+    var section = header.parentElement;
+    section.classList.toggle('collapsed');
+}
+</script>
+
 </body>
+
 </html>

@@ -64,6 +64,8 @@ def get_match(home: str, away: str) -> dict | None:
     for m in fetch_all():
         api_home = m["Home"]["TeamName"][0]["Description"]
         api_away = m["Away"]["TeamName"][0]["Description"]
+        stage_name = m["StageName"][0]["Description"] if m.get("StageName") else ""
+        group_name = m["GroupName"][0]["Description"] if m.get("GroupName") else ""
         if api_home == home_norm and api_away == away_norm:
             hs = m["Home"].get("Score")
             aws = m["Away"].get("Score")
@@ -74,6 +76,8 @@ def get_match(home: str, away: str) -> dict | None:
                 "result": _score_to_result(hs, aws),
                 "home": api_home,
                 "away": api_away,
+                "stage_name": stage_name,
+                "group_name": group_name,
             }
         if api_away == home_norm and api_home == away_norm:
             hs = m["Away"].get("Score")
@@ -85,8 +89,23 @@ def get_match(home: str, away: str) -> dict | None:
                 "result": _score_to_result(hs, aws),
                 "home": api_away,
                 "away": api_home,
+                "stage_name": stage_name,
+                "group_name": group_name,
             }
     return None
+
+
+@cache
+def fetch_all_raw() -> list[dict]:
+    """Fetch all matches including those with null Home/Away (TBD knockout slots)."""
+    req = urllib.request.Request(FIFA_API, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+    except Exception as e:
+        print(f"FIFA API error: {e}")
+        return []
+    return data.get("Results", [])
 
 
 def show_all():
