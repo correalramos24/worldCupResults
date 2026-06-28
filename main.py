@@ -294,8 +294,18 @@ def main():
     for name, ms in bracket_lookup.items():
         all_rounds.append({"name": name, "matches": ms, "has_bets": False})
 
+    current_section = 0
+    for i, section in enumerate(all_rounds):
+        for match in section["matches"]:
+            if not match.get("resultat") and not match.get("result"):
+                current_section = i
+                break
+        else:
+            continue
+        break
+
     template = Template(open("template.html", encoding="utf-8").read())
-    html = template.render(ranking=ranking, all_rounds=all_rounds, total_games=total_games, completed_games=completed_games)
+    html = template.render(ranking=ranking, all_rounds=all_rounds, total_games=total_games, completed_games=completed_games, current_section=current_section)
     os.makedirs('dist', exist_ok=True)
     with open("dist/index.html", mode="w", encoding="utf-8") as f:
         f.write(html)
