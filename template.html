@@ -126,6 +126,69 @@ tr { transition: 0.2s; }
 .top2 { background: rgba(156, 163, 175, 0.08); }
 .top3 { background: rgba(180, 83, 9, 0.08); }
 
+.podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 20px;
+    padding: 30px 10px 10px;
+}
+
+.podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 24px;
+    min-width: 130px;
+    position: relative;
+}
+
+.podium-1 {
+    background: linear-gradient(180deg, rgba(251, 191, 36, 0.2) 0%, rgba(251, 191, 36, 0.05) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    padding-bottom: 40px;
+}
+
+.podium-2 {
+    background: linear-gradient(180deg, rgba(156, 163, 175, 0.2) 0%, rgba(156, 163, 175, 0.05) 100%);
+    border: 1px solid rgba(156, 163, 175, 0.3);
+    padding-bottom: 20px;
+}
+
+.podium-3 {
+    background: linear-gradient(180deg, rgba(180, 83, 9, 0.2) 0%, rgba(180, 83, 9, 0.05) 100%);
+    border: 1px solid rgba(180, 83, 9, 0.3);
+    padding-bottom: 10px;
+}
+
+.podium-rank {
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.podium-rank.gold { color: var(--gold); }
+.podium-rank.silver { color: var(--silver); }
+.podium-rank.bronze { color: var(--bronze); }
+
+.podium-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.podium-stats {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+.podium-medal {
+    font-size: 2rem;
+}
+
 .player {
     font-weight: 500;
 }
@@ -309,6 +372,35 @@ tr { transition: 0.2s; }
 </div>
 
 <div class="card">
+
+<div class="podium">
+    {% set items = ranking.items() | list %}
+    {% if items | length >= 2 %}
+    <div class="podium-item podium-2">
+        <div class="podium-medal">🥈</div>
+        <div class="podium-rank silver">#2</div>
+        <div class="podium-name">{{ items[1][0] }}</div>
+        <div class="podium-stats">{{ items[1][1].aciertos }} aciertos · {{ items[1][1].rating | round(2) }} rating</div>
+    </div>
+    {% endif %}
+    {% if items | length >= 1 %}
+    <div class="podium-item podium-1">
+        <div class="podium-medal">🥇</div>
+        <div class="podium-rank gold">#1</div>
+        <div class="podium-name">{{ items[0][0] }}</div>
+        <div class="podium-stats">{{ items[0][1].aciertos }} aciertos · {{ items[0][1].rating | round(2) }} rating</div>
+    </div>
+    {% endif %}
+    {% if items | length >= 3 %}
+    <div class="podium-item podium-3">
+        <div class="podium-medal">🥉</div>
+        <div class="podium-rank bronze">#3</div>
+        <div class="podium-name">{{ items[2][0] }}</div>
+        <div class="podium-stats">{{ items[2][1].aciertos }} aciertos · {{ items[2][1].rating | round(2) }} rating</div>
+    </div>
+    {% endif %}
+</div>
+
 <table class="rank-table">
 <tr>
     <th>#</th>
@@ -318,7 +410,7 @@ tr { transition: 0.2s; }
 </tr>
 
 {% for player, data in ranking.items() %}
-<tr class="{% if loop.index == 1 %}top1{% elif loop.index == 2 %}top2{% elif loop.index == 3 %}top3{% endif %}">
+<tr class="{% if loop.index > 3 %}{% elif loop.index == 1 %}top1{% elif loop.index == 2 %}top2{% elif loop.index == 3 %}top3{% endif %}">
 
     <td class="rank">{{ loop.index }}</td>
 
