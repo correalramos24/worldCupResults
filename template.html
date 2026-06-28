@@ -350,7 +350,7 @@ tr { transition: 0.2s; }
 <h2>📋 Partidos</h2>
 
 {% for round in all_rounds %}
-<div class="stage-section {{ 'collapsed' if loop.index > 1 else '' }}">
+<div class="stage-section {{ 'collapsed' if loop.index0 != current_section else '' }}">
 <h3 class="stage-header" onclick="toggleSection(this)">
     {{ round.name }}
     <span class="stage-toggle">▼</span>
