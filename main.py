@@ -55,9 +55,25 @@ def main():
 
     df = pd.read_csv(URL, dtype=str)
     participants = list(df.columns[3:])
+
+    # --- Read playoff predictions from sheet 2 (optional) ---
+    URL2 = os.environ.get("SHEET_2_URL", "")
+    df2 = None
+    if URL2:
+        try:
+            df2 = pd.read_csv(URL2, dtype=str)
+            print(f"\nPlayoff predictions sheet found ({len(df2)} rows), columns: {list(df2.columns)}")
+            for p in list(df2.columns[3:]):
+                if p not in participants:
+                    participants.append(p)
+        except Exception as e:
+            print(f"\nNo playoff predictions sheet: {e}")
+
     print(f"\nFound {len(participants)} participants: {participants}")
 
     df.iloc[:, 3:] = df.iloc[:, 3:].apply(lambda col: col.str.lower())
+    if df2 is not None:
+        df2.iloc[:, 3:] = df2.iloc[:, 3:].apply(lambda col: col.str.lower())
 
     # --- Read manual results from sheet (optional) ---
     results_lookup = {}
@@ -76,12 +92,19 @@ def main():
         print(f"\nNo manual results sheet: {e}")
         print("Using FIFA API as only result source\n")
 
-    # --- Build FIFA match lookup ---
-    fifa_matches = {}
+    # --- Build FIFA match lookup for ALL matches ---
+    all_home_away = []
     for _, row in df.iterrows():
-        m = get_match(row.iloc[1], row.iloc[2])
+        all_home_away.append((row.iloc[1], row.iloc[2]))
+    if df2 is not None:
+        for _, row in df2.iterrows():
+            all_home_away.append((row.iloc[1], row.iloc[2]))
+
+    fifa_matches = {}
+    for home, away in set((h.strip(), a.strip()) for h, a in all_home_away):
+        m = get_match(home, away)
         if m:
-            fifa_matches[(row.iloc[1], row.iloc[2])] = m
+            fifa_matches[(home, away)] = m
 
     print(f"FIFA results available: {len(fifa_matches)} matches\n")
 
@@ -99,34 +122,38 @@ def main():
 
     ranking = {p: {"aciertos": 0, "rating": 0.0} for p in participants}
 
+    def _score_row(row, participants, result):
+        outcome_counts = {"1": 0, "2": 0, "x": 0}
+        valid_predictions = 0
+        for p in participants:
+            bet = row[p]
+            if bet in outcome_counts:
+                outcome_counts[bet] += 1
+                valid_predictions += 1
+
+        for p in participants:
+            if row[p] == result:
+                ranking[p]["aciertos"] += 1
+                if valid_predictions > 0 and outcome_counts[result] > 0:
+                    ranking[p]["rating"] += valid_predictions / outcome_counts[result]
+
     for _, row in df.iterrows():
         result = _get_result(row.iloc[1], row.iloc[2])
         if result:
-            outcome_counts = {"1": 0, "2": 0, "x": 0}
-            valid_predictions = 0
-            for p in participants:
-                bet = row[p]
-                if bet in outcome_counts:
-                    outcome_counts[bet] += 1
-                    valid_predictions += 1
+            _score_row(row, participants, result)
 
-            for p in participants:
-                if row[p] == result:
-                    ranking[p]["aciertos"] += 1
-                    if valid_predictions > 0 and outcome_counts[result] > 0:
-                        ranking[p]["rating"] += valid_predictions / outcome_counts[result]
+    if df2 is not None:
+        for _, row in df2.iterrows():
+            result = _get_result(row.iloc[1], row.iloc[2])
+            if result:
+                _score_row(row, participants, result)
 
     ranking = dict(
         sorted(ranking.items(), key=lambda x: (-x[1]["aciertos"], -x[1]["rating"]))
     )
 
-    matches = []
-    for _, row in df.iterrows():
-        result = _get_result(row.iloc[1], row.iloc[2])
+    def _build_match(row, participants, result, m, jornada=0):
         is_empty = not result
-
-        m = fifa_matches.get((row.iloc[1].strip(), row.iloc[2].strip()))
-
         rating_value = 0.0
         if not is_empty:
             outcome_counts = {"1": 0, "2": 0, "x": 0}
@@ -141,13 +168,14 @@ def main():
 
         stage_name = m["stage_name"] if m else ""
         group_name = m["group_name"] if m else ""
-        jornada = jornada_map.get((row.iloc[1], row.iloc[2]), 0)
 
         match = {
             "date_raw": m["date"] if m else row.iloc[0],
             "data": _format_date(m["date"]) if m else row.iloc[0],
             "local": row.iloc[1],
             "visitante": row.iloc[2],
+            "home_score": m["home_score"] if m else None,
+            "away_score": m["away_score"] if m else None,
             "resultat": result,
             "rating_value": rating_value,
             "apuestas": {},
@@ -160,7 +188,20 @@ def main():
                 "bet": row[p],
                 "hit": not is_empty and row[p] == result
             }
-        matches.append(match)
+        return match
+
+    matches = []
+    for _, row in df.iterrows():
+        result = _get_result(row.iloc[1], row.iloc[2])
+        m = fifa_matches.get((row.iloc[1].strip(), row.iloc[2].strip()))
+        jornada = jornada_map.get((row.iloc[1], row.iloc[2]), 0)
+        matches.append(_build_match(row, participants, result, m, jornada))
+
+    if df2 is not None:
+        for _, row in df2.iterrows():
+            result = _get_result(row.iloc[1], row.iloc[2])
+            m = fifa_matches.get((row.iloc[1].strip(), row.iloc[2].strip()))
+            matches.append(_build_match(row, participants, result, m, 0))
 
     stage_groups = OrderedDict()
     for match in matches:
@@ -177,15 +218,18 @@ def main():
         stage_groups[key].append(match)
 
     match_groups = list(stage_groups.items())
-    total_games = 104
+    total_games = len(matches)
     completed_games = sum(1 for m in matches if m["resultat"])
 
+    existing_rounds = {name for name, _ in match_groups}
     bracket_rounds = OrderedDict()
     for m in fetch_all_raw():
         stage_name = m.get("StageName", [{}])[0].get("Description", "") if m.get("StageName") else ""
         if stage_name == "First Stage":
             continue
         round_key = STAGE_NAMES.get(stage_name, stage_name)
+        if round_key in existing_rounds:
+            continue
         home_obj = m.get("Home")
         away_obj = m.get("Away")
         home = home_obj.get("TeamName", [{}])[0].get("Description", "??") if home_obj else "??"
