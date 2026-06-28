@@ -29,6 +29,7 @@ jobs:
       - name: Build site w/ jinja2
         env:
           SHEET_URL: ${{ secrets.SHEET_URL }}
+          SHEET_2_URL: ${{ secrets.SHEET_2_URL }}
         run: python main.py
       
       - name: Setup Pages
