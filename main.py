@@ -218,22 +218,24 @@ def main():
         stage_groups[key].append(match)
 
     match_groups = list(stage_groups.items())
-    total_games = len(matches)
-    completed_games = sum(1 for m in matches if m["resultat"])
 
-    existing_rounds = {name for name, _ in match_groups}
+    sheet_pairs = set()
+    if df2 is not None:
+        for _, row in df2.iterrows():
+            sheet_pairs.add((str(row.iloc[1]).strip(), str(row.iloc[2]).strip()))
+
     bracket_rounds = OrderedDict()
     for m in fetch_all_raw():
         stage_name = m.get("StageName", [{}])[0].get("Description", "") if m.get("StageName") else ""
         if stage_name == "First Stage":
             continue
         round_key = STAGE_NAMES.get(stage_name, stage_name)
-        if round_key in existing_rounds:
-            continue
         home_obj = m.get("Home")
         away_obj = m.get("Away")
         home = home_obj.get("TeamName", [{}])[0].get("Description", "??") if home_obj else "??"
         away = away_obj.get("TeamName", [{}])[0].get("Description", "??") if away_obj else "??"
+        if (home, away) in sheet_pairs or (away, home) in sheet_pairs:
+            continue
         hs = home_obj.get("Score") if home_obj else None
         aws = away_obj.get("Score") if away_obj else None
         date = m.get("Date", "")
@@ -260,10 +262,36 @@ def main():
         })
     bracket_data = list(bracket_rounds.items())
 
+    total_games = len(matches) + sum(len(ms) for _, ms in bracket_data)
+    completed_games = sum(1 for m in matches if m["resultat"]) + sum(1 for _, ms in bracket_data for m in ms if m.get("result"))
+
     all_rounds = []
     for name, ms in match_groups:
-        all_rounds.append({"name": name, "matches": ms, "has_bets": True})
-    for name, ms in bracket_data:
+        all_rounds.append({"name": name, "matches": list(ms), "has_bets": True})
+
+    bracket_lookup = {name: ms for name, ms in bracket_data}
+    for r in all_rounds:
+        extra = bracket_lookup.pop(r["name"], None)
+        if extra is not None:
+            existing = {(m.get("local", ""), m.get("visitante", "")) for m in r["matches"]}
+            for bm in extra:
+                pair = (bm["home"], bm["away"])
+                if pair not in existing and (bm["away"], bm["home"]) not in existing:
+                    r["matches"].append({
+                        "local": bm["home"],
+                        "visitante": bm["away"],
+                        "data": bm["date"],
+                        "home_score": bm["home_score"],
+                        "away_score": bm["away_score"],
+                        "resultat": bm["result"],
+                        "rating_value": 0.0,
+                        "apuestas": {p: {"bet": "", "hit": False} for p in participants},
+                        "stage_name": "",
+                        "group_name": "",
+                        "jornada": 0,
+                    })
+
+    for name, ms in bracket_lookup.items():
         all_rounds.append({"name": name, "matches": ms, "has_bets": False})
 
     template = Template(open("template.html", encoding="utf-8").read())
