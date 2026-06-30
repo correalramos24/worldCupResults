@@ -54,6 +54,7 @@ def main():
     show_all()
 
     df = pd.read_csv(URL, dtype=str)
+    df = df.dropna(subset=[df.columns[1], df.columns[2]])
     participants = list(df.columns[3:])
 
     # --- Read playoff predictions from sheet 2 (optional) ---
@@ -62,6 +63,7 @@ def main():
     if URL2:
         try:
             df2 = pd.read_csv(URL2, dtype=str)
+            df2 = df2.dropna(subset=[df2.columns[1], df2.columns[2]])
             print(f"\nPlayoff predictions sheet found ({len(df2)} rows), columns: {list(df2.columns)}")
             for p in list(df2.columns[3:]):
                 if p not in participants:
@@ -199,7 +201,8 @@ def main():
         for p in participants:
             match["apuestas"][p] = {
                 "bet": row[p],
-                "hit": not is_empty and row[p] == result
+                "hit": not is_empty and row[p] == result,
+                "rating_earned": rating_value if not is_empty and row[p] == result else 0.0,
             }
         return match
 
@@ -308,7 +311,7 @@ def main():
                         "resultat": bm["result"],
                         "winner": bm.get("winner", ""),
                         "rating_value": 0.0,
-                        "apuestas": {p: {"bet": "", "hit": False} for p in participants},
+                        "apuestas": {p: {"bet": "", "hit": False, "rating_earned": 0.0} for p in participants},
                         "stage_name": "",
                         "group_name": "",
                         "jornada": 0,
