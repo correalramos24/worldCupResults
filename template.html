@@ -498,7 +498,7 @@ tr { transition: 0.2s; }
             {%- elif match.resultat and match.resultat != "" %} bet-miss
             {%- else %} bet-pending
             {%- endif %}">
-            {{ apuesta.bet }}
+            {{ apuesta.bet }}{% if apuesta.rating_earned is defined and apuesta.rating_earned > 0 %}<br><small>+{{ apuesta.rating_earned | round(2) }}</small>{% endif %}
         </td>
     {% endfor %}
     {% endif %}
