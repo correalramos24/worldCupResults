@@ -57,6 +57,19 @@ def fetch_all() -> list[dict]:
     ]
 
 
+def _get_winner(m: dict) -> str:
+    winner_id = m.get("Winner")
+    if winner_id is None:
+        return ""
+    home_id = m.get("Home", {}).get("IdTeam")
+    away_id = m.get("Away", {}).get("IdTeam")
+    if winner_id == home_id:
+        return "home"
+    if winner_id == away_id:
+        return "away"
+    return ""
+
+
 def get_match(home: str, away: str) -> dict | None:
     home_norm = _normalize(home)
     away_norm = _normalize(away)
@@ -78,6 +91,7 @@ def get_match(home: str, away: str) -> dict | None:
                 "away": api_away,
                 "stage_name": stage_name,
                 "group_name": group_name,
+                "winner": _get_winner(m),
             }
         if api_away == home_norm and api_home == away_norm:
             hs = m["Away"].get("Score")
@@ -91,6 +105,7 @@ def get_match(home: str, away: str) -> dict | None:
                 "away": api_home,
                 "stage_name": stage_name,
                 "group_name": group_name,
+                "winner": _get_winner(m),
             }
     return None
 
