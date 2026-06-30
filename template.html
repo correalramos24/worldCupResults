@@ -474,7 +474,7 @@ tr { transition: 0.2s; }
     <td class="fixture">{{ match.visitante if match.visitante is defined else match.away }}</td>
     <td>
         {% if match.home_score is not none and match.away_score is not none %}
-            <span class="result-badge">{{ match.home_score }}-{{ match.away_score }}</span>
+            <span class="result-badge">{% if match.winner is defined and match.winner == "home" and match.home_score == match.away_score %}*{% endif %}{{ match.home_score }}-{{ match.away_score }}{% if match.winner is defined and match.winner == "away" and match.home_score == match.away_score %}*{% endif %}</span>
         {% elif match.resultat is defined and match.resultat and match.resultat != "" %}
             <span class="result-badge">{{ match.resultat }}</span>
         {% elif match.result and match.result != "" %}

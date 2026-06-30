@@ -120,6 +120,18 @@ def main():
             return m.get("result", "")
         return ""
 
+    def _get_winner_result(home: str, away: str) -> str:
+        """Return '1' if home advances, '2' if away advances, '' otherwise."""
+        key = (home.strip(), away.strip())
+        m = fifa_matches.get(key)
+        if m:
+            w = m.get("winner", "")
+            if w == "home":
+                return "1"
+            if w == "away":
+                return "2"
+        return ""
+
     ranking = {p: {"aciertos": 0, "rating": 0.0} for p in participants}
 
     def _score_row(row, participants, result):
@@ -144,7 +156,7 @@ def main():
 
     if df2 is not None:
         for _, row in df2.iterrows():
-            result = _get_result(row.iloc[1], row.iloc[2])
+            result = _get_winner_result(row.iloc[1], row.iloc[2])
             if result:
                 _score_row(row, participants, result)
 
@@ -182,6 +194,7 @@ def main():
             "stage_name": stage_name,
             "group_name": group_name,
             "jornada": jornada,
+            "winner": (m.get("winner", "") if stage_name != "First Stage" else "") if m else "",
         }
         for p in participants:
             match["apuestas"][p] = {
@@ -199,7 +212,7 @@ def main():
 
     if df2 is not None:
         for _, row in df2.iterrows():
-            result = _get_result(row.iloc[1], row.iloc[2])
+            result = _get_winner_result(row.iloc[1], row.iloc[2])
             m = fifa_matches.get((row.iloc[1].strip(), row.iloc[2].strip()))
             matches.append(_build_match(row, participants, result, m, 0))
 
@@ -239,6 +252,14 @@ def main():
         hs = home_obj.get("Score") if home_obj else None
         aws = away_obj.get("Score") if away_obj else None
         date = m.get("Date", "")
+        winner_id = m.get("Winner")
+        home_id = m.get("Home", {}).get("IdTeam") if m.get("Home") else None
+        away_id = m.get("Away", {}).get("IdTeam") if m.get("Away") else None
+        winner = ""
+        if winner_id and home_id == winner_id:
+            winner = "home"
+        elif winner_id and away_id == winner_id:
+            winner = "away"
         result = ""
         if hs is not None and aws is not None:
             try:
@@ -258,6 +279,7 @@ def main():
             "home_score": hs,
             "away_score": aws,
             "result": result,
+            "winner": winner,
             "date": _format_date(date) if date else "",
         })
     bracket_data = list(bracket_rounds.items())
@@ -284,6 +306,7 @@ def main():
                         "home_score": bm["home_score"],
                         "away_score": bm["away_score"],
                         "resultat": bm["result"],
+                        "winner": bm.get("winner", ""),
                         "rating_value": 0.0,
                         "apuestas": {p: {"bet": "", "hit": False} for p in participants},
                         "stage_name": "",
