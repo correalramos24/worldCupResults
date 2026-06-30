@@ -5,7 +5,7 @@ import pandas as pd
 from jinja2 import Template
 import os
 from dotenv import load_dotenv
-from fifa_api import get_match, show_all, fetch_all, fetch_all_raw
+from fifa_api import get_match, show_all, fetch_all, fetch_all_raw, _normalize
 
 
 STAGE_NAMES = {
@@ -235,7 +235,7 @@ def main():
     sheet_pairs = set()
     if df2 is not None:
         for _, row in df2.iterrows():
-            sheet_pairs.add((str(row.iloc[1]).strip(), str(row.iloc[2]).strip()))
+            sheet_pairs.add((_normalize(str(row.iloc[1]).strip()), _normalize(str(row.iloc[2]).strip())))
 
     bracket_rounds = OrderedDict()
     for m in fetch_all_raw():
