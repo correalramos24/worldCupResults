@@ -330,8 +330,44 @@ def main():
             continue
         break
 
+    # --- Build cumulative rating chart data ---
+    chart_labels = []
+    chart_datasets = []
+    player_colors = [
+        "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+        "#911eb4", "#42d4f4", "#f032e6", "#bfef45", "#fabed4",
+        "#469990", "#dcbeff", "#9a6324", "#fffac8", "#800000",
+        "#aaffc3", "#808000", "#ffd8b1", "#000075", "#a9a9a9",
+    ]
+    cum = {p: 0.0 for p in participants}
+    for r in all_rounds:
+        for i, m in enumerate(r["matches"]):
+            label = f"{r['name']} #{i+1}"
+            chart_labels.append(label)
+    for pi, p in enumerate(participants):
+        cum_p = 0.0
+        data = []
+        point_colors = []
+        for r in all_rounds:
+            for i, m in enumerate(r["matches"]):
+                ap = m.get("apuestas", {}).get(p, {})
+                re = ap.get("rating_earned", 0.0)
+                cum_p += re
+                data.append(round(cum_p, 2))
+                point_colors.append("#ffd700" if re >= 10 else player_colors[pi % len(player_colors)])
+        chart_datasets.append({
+            "label": p,
+            "data": data,
+            "borderColor": player_colors[pi % len(player_colors)],
+            "backgroundColor": player_colors[pi % len(player_colors)] + "33",
+            "pointBackgroundColor": point_colors,
+            "pointRadius": 3,
+            "pointHoverRadius": 5,
+            "tension": 0.2,
+        })
+
     template = Template(open("template.html", encoding="utf-8").read())
-    html = template.render(ranking=ranking, all_rounds=all_rounds, total_games=total_games, completed_games=completed_games, current_section=current_section)
+    html = template.render(ranking=ranking, all_rounds=all_rounds, total_games=total_games, completed_games=completed_games, current_section=current_section, chart_labels=chart_labels, chart_datasets=chart_datasets)
     os.makedirs('dist', exist_ok=True)
     with open("dist/index.html", mode="w", encoding="utf-8") as f:
         f.write(html)

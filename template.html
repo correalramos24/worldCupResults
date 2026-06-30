@@ -361,6 +361,13 @@ tr { transition: 0.2s; }
 
 <div class="container">
 
+<div class="card">
+<h2>📈 Rating acumulado</h2>
+<div style="position:relative;height:400px">
+    <canvas id="ratingChart"></canvas>
+</div>
+</div>
+
 <div class="card progress-card">
     <div class="progress-header">
         <span>Partidos completados</span>
@@ -498,7 +505,7 @@ tr { transition: 0.2s; }
             {%- elif match.resultat and match.resultat != "" %} bet-miss
             {%- else %} bet-pending
             {%- endif %}">
-            {{ apuesta.bet }}{% if apuesta.rating_earned is defined and apuesta.rating_earned > 0 %}<br><small>+{{ apuesta.rating_earned | round(2) }}</small>{% endif %}
+            {{ apuesta.bet }}
         </td>
     {% endfor %}
     {% endif %}
@@ -515,11 +522,48 @@ tr { transition: 0.2s; }
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 function toggleSection(header) {
     var section = header.parentElement;
     section.classList.toggle('collapsed');
 }
+
+var ctx = document.getElementById('ratingChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels | tojson }},
+        datasets: {{ chart_datasets | tojson }}
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#e5e7eb', boxWidth: 12, padding: 12 } },
+            tooltip: {
+                callbacks: {
+                    title: function(items) { return items[0].label; },
+                    label: function(item) {
+                        return item.dataset.label + ': ' + item.parsed.y.toFixed(2);
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 9 } },
+                grid: { color: '#1f2937' }
+            },
+            y: {
+                beginAtZero: true,
+                ticks: { color: '#94a3b8' },
+                grid: { color: '#1f2937' }
+            }
+        }
+    }
+});
 </script>
 
 </body>
