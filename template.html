@@ -498,7 +498,7 @@ tr { transition: 0.2s; }
             {%- elif match.resultat and match.resultat != "" %} bet-miss
             {%- else %} bet-pending
             {%- endif %}">
-            {{ apuesta.bet }}
+            {{ apuesta.bet if apuesta.bet is string and apuesta.bet != "nan" and apuesta.bet != "" else "—" }}
         </td>
     {% endfor %}
     {% endif %}

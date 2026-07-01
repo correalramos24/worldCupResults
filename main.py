@@ -63,7 +63,6 @@ def main():
     if URL2:
         try:
             df2 = pd.read_csv(URL2, dtype=str)
-            df2 = df2.dropna(subset=[df2.columns[1], df2.columns[2]])
             print(f"\nPlayoff predictions sheet found ({len(df2)} rows), columns: {list(df2.columns)}")
             for p in list(df2.columns[3:]):
                 if p not in participants:
@@ -103,7 +102,11 @@ def main():
             all_home_away.append((row.iloc[1], row.iloc[2]))
 
     fifa_matches = {}
-    for home, away in set((h.strip(), a.strip()) for h, a in all_home_away):
+    for home, away in set(
+        (str(h).strip(), str(a).strip())
+        for h, a in all_home_away
+        if isinstance(h, str) and isinstance(a, str) and h.strip() and a.strip()
+    ):
         m = get_match(home, away)
         if m:
             fifa_matches[(home, away)] = m
@@ -158,7 +161,11 @@ def main():
 
     if df2 is not None:
         for _, row in df2.iterrows():
-            result = _get_winner_result(row.iloc[1], row.iloc[2])
+            home = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+            away = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
+            if not home or not away:
+                continue
+            result = _get_winner_result(home, away)
             if result:
                 _score_row(row, participants, result)
 
@@ -180,14 +187,17 @@ def main():
             if valid_predictions > 0 and outcome_counts[result] > 0:
                 rating_value = valid_predictions / outcome_counts[result]
 
-        stage_name = m["stage_name"] if m else ""
+        stage_name = m["stage_name"] if m else (str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) and str(row.iloc[0]).strip().lower() != "nan" else "")
         group_name = m["group_name"] if m else ""
 
+        local_team = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) and str(row.iloc[1]).strip() not in ("nan", "") else "TBD"
+        visit_team = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) and str(row.iloc[2]).strip() not in ("nan", "") else "TBD"
+        raw_date = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) and str(row.iloc[0]).strip().lower() not in ("nan", "") else ""
         match = {
-            "date_raw": m["date"] if m else row.iloc[0],
-            "data": _format_date(m["date"]) if m else row.iloc[0],
-            "local": row.iloc[1],
-            "visitante": row.iloc[2],
+            "date_raw": m["date"] if m else raw_date,
+            "data": _format_date(m["date"]) if m else raw_date,
+            "local": local_team,
+            "visitante": visit_team,
             "home_score": m["home_score"] if m else None,
             "away_score": m["away_score"] if m else None,
             "resultat": result,
@@ -215,8 +225,10 @@ def main():
 
     if df2 is not None:
         for _, row in df2.iterrows():
-            result = _get_winner_result(row.iloc[1], row.iloc[2])
-            m = fifa_matches.get((row.iloc[1].strip(), row.iloc[2].strip()))
+            home = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+            away = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
+            result = _get_winner_result(home, away) if home and away else ""
+            m = fifa_matches.get((home, away)) if home and away else None
             matches.append(_build_match(row, participants, result, m, 0))
 
     stage_groups = OrderedDict()
