@@ -227,6 +227,8 @@ def main():
         for _, row in df2.iterrows():
             home = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
             away = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
+            if not home or not away:
+                continue
             result = _get_winner_result(home, away) if home and away else ""
             m = fifa_matches.get((home, away)) if home and away else None
             matches.append(_build_match(row, participants, result, m, 0))
